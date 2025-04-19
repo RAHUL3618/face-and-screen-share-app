@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Face + Screen Share App</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 2rem;
+      margin: 0;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: #fff;
+    }
+
+    h1 {
+      font-size: 2rem;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    button {
+      margin: 10px;
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 25px;
+      background-color: #00c853;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 200, 83, 0.4);
+      transition: all 0.3s ease;
+      animation: fadeIn 1.2s ease-in-out;
+    }
+
+    button:hover {
+      background-color: #00e676;
+      transform: scale(1.05);
+    }
+
+    video {
+      width: 300px;
+      margin: 20px 10px;
+      border: 5px solid #ffffff44;
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      animation: popIn 1s ease;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Face + Screen Share Web</h1>
+
+  <button onclick="startCamera()">Start Camera</button>
+  <button onclick="startScreenShare()">Share Screen</button>
+  <button onclick="exitApp()">Exit</button>
+
+  <div>
+    <video id="cameraVideo" autoplay muted></video>
+    <video id="screenVideo" autoplay muted></video>
+    <canvas id="faceCanvas"></canvas>
+  </div>
+
+  <script>
+    const cameraVideo = document.getElementById("cameraVideo");
+    const screenVideo = document.getElementById("screenVideo");
+    const faceCanvas = document.getElementById("faceCanvas");
+    const ctx = faceCanvas.getContext("2d");
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        cameraVideo.srcObject = stream;
+        detectFaces(cameraVideo);
+      } catch (err) {
+        alert("Error accessing camera: " + err.message);
+      }
+    }
+
+    async function startScreenShare() {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        screenVideo.srcObject = stream;
+      } catch (err) {
+        alert("Error sharing screen: " + err.message);
+      }
+    }
+
+    async function detectFaces(video) {
+      if (!("FaceDetector" in window)) {
+        console.warn("Face Detection API not supported in this browser.");
+        return;
+      }
+
+      const detector = new FaceDetector({ fastMode: true });
+
+      async function drawFaces() {
+        faceCanvas.width = video.videoWidth;
+        faceCanvas.height = video.videoHeight;
+        ctx.clearRect(0, 0, faceCanvas.width, faceCanvas.height);
+
+        try {
+          const faces = await detector.detect(video);
+          faces.forEach(face => {
+            const { width, height, top, left } = face.boundingBox;
+            ctx.strokeStyle = "red";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(left, top, width, height);
+            ctx.font = '16px sans-serif';
+            ctx.fillStyle = 'red';
+            ctx.fillText('Face Detected', left, top - 10);
+          });
+        } catch (e) {
+          console.error("Face detection failed:", e);
+        }
+
+        requestAnimationFrame(drawFaces);
+      }
+
+      drawFaces();
+    }
+
+    function exitApp() {
+      if (confirm("Are you sure you want to exit?")) {
+        fetch('/exit-log', { method: 'POST' }); // Notify server
+        window.open('', '_self', '');
+        window.close(); // Only works on popups, not tabs opened directly
+      }
+    }
+  </script>
+
+</body>
+</html>
